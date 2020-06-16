@@ -2,12 +2,40 @@
 
 import sys
 
+LDI = 0b10000010
+PRN = 0b01000111
+HLT = 0b00000001
+
 class CPU:
     """Main CPU class."""
 
     def __init__(self):
         """Construct a new CPU."""
-        pass
+        # 8 general-purpose registers
+        self.reg = [0] * 8
+        # Program Counter, index of the current instruction
+        self.pc = 0
+        # CPU has a total of 256 bytes of memory
+        self.ram = [0] * 256
+        # exit the emulator
+        self.halted = False
+
+        self.LDI = LDI
+        self.HLT = HLT
+        self.PRN = PRN
+
+
+    # Step 2
+    # add method `ram_read()
+    def ram_read(self, pc):
+        return self.ram[pc]
+
+    # Step 2
+    # add ram_write()
+    def ram_write(self, pc, value):
+        self.ram[pc] = value
+
+
 
     def load(self):
         """Load a program into memory."""
@@ -62,4 +90,16 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        pass
+        running = True
+
+        # while loop
+        # LDI
+        # PRN
+        # and HLT
+
+
+        # LDI, PRN, HLT defs
+        # LDI will have address, value, and ram_write
+        # PRN will have address and value of ram_read
+        # HLT will return false
+
