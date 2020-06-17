@@ -96,10 +96,35 @@ class CPU:
         # LDI
         # PRN
         # and HLT
+        while running == True:
+            ir = self.ram[self.pc]
 
+            if ir == self.LDI:
+                self.ldi()
 
+            elif ir == self.PRN:
+                self.prn()
+
+            elif ir == self.HLT:
+                running = self.hlt(running)
+                
         # LDI, PRN, HLT defs
         # LDI will have address, value, and ram_write
         # PRN will have address and value of ram_read
         # HLT will return false
+    def ldi(self):
+        address = self.ram[self.pc+1]
+        value = self.ram[self.pc+2]
+        self.ram_write(address, value)
+        self.pc += 3
+
+    def prn(self):
+        address = self.ram[self.pc+1]
+        value = self.ram_read(address)
+        print(value)
+        self.pc += 2
+
+    def hlt(self, running):
+        self.pc += 1
+        return False
 
