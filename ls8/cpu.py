@@ -6,6 +6,12 @@ LDI = 0b10000010
 PRN = 0b01000111
 HLT = 0b00000001
 MUL = 0b10100010
+PUSH = 0b01000101
+POP = 0b01000110
+SP = 7
+
+# 32  16  8 4 2 1
+# 1   0  1 0 1 0
 
 class CPU:
     """Main CPU class."""
@@ -14,6 +20,10 @@ class CPU:
         """Construct a new CPU."""
         # 8 general-purpose registers
         self.reg = [0] * 8
+        # stack pointer is 7, the last place of the reg
+        # `R7` is set to `0xF4`.
+        # 0xF4 == 244
+        self.reg[SP] = 0xF4        
         # Program Counter, index of the current instruction
         self.pc = 0
         # CPU has a total of 256 bytes of memory
@@ -25,6 +35,8 @@ class CPU:
         self.HLT = HLT
         self.PRN = PRN
         self.MUL = MUL
+        self.PUSH = PUSH
+        self.POP = POP
 
 
     # Step 2
@@ -131,7 +143,32 @@ class CPU:
                 self.prn(address_1)                
 
             elif ir == self.MUL:
-                self.mul(address_1, address_2)                
+                self.mul(address_1, address_2)
+
+            elif ir == self.PUSH:
+                # minus SP
+                self.reg[SP] -= 1
+
+                # Get the value we want to store from the register
+                reg_num = address_1
+                value = self.reg[reg_num]
+
+                # figure out where to store it
+                top_of_stack_addr = self.reg[SP]
+
+                # and then store it
+                self.ram[top_of_stack_addr] = value
+
+            elif ir == self.POP:
+
+                top_of_stack_addr = self.reg[SP]
+
+                value = self.ram[top_of_stack_addr]
+
+                self.reg[address_1] = value
+
+                self.reg[SP] += 1
+
 
             elif ir == self.HLT:
                 running = self.hlt(running)
