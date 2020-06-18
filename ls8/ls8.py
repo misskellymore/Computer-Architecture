@@ -7,5 +7,6 @@ from cpu import *
 
 cpu = CPU()
 
-cpu.load()
+# cpu.load(sys.argv[1])
+cpu.load("/home/kelly/Kelly/Desktop/LambdaProjects/Computer-Architecture/ls8/examples/mult.ls8")
 cpu.run()
