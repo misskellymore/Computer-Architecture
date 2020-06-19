@@ -2,16 +2,7 @@
 
 import sys
 
-LDI = 0b10000010
-PRN = 0b01000111
-HLT = 0b00000001
-MUL = 0b10100010
-PUSH = 0b01000101
-POP = 0b01000110
-RET = 0b00010001
-CALL = 0b01010000
-ADD = 0b10100000
-SP = 7
+
 
 # 32  16  8 4 2 1
 # 1   0  1 0 1 0
@@ -26,24 +17,37 @@ class CPU:
         # stack pointer is 7, the last place of the reg
         # `R7` is set to `0xF4`.
         # 0xF4 == 244
-        self.reg[SP] = 0xF4        
+        self.sp = 7
+        self.reg[self.sp] = 0xF4        
         # Program Counter, index of the current instruction
         self.pc = 0
         # CPU has a total of 256 bytes of memory
         self.ram = [0] * 256
         # exit the emulator
-        self.halted = False
+        self.halted = False        
 
-        self.LDI = LDI
-        self.HLT = HLT
-        self.PRN = PRN
-        self.MUL = MUL
-        self.PUSH = PUSH
-        self.POP = POP
-        self.RET = RET
-        self.CALL = CALL
-        self.ADD = ADD
+        # flags
+        self.flags = [0] * 8
 
+        # instructions        
+        self.instructions = {
+
+            0b10000010: self.ldi,
+            0b01000111: self.prn,
+            0b00000001: self.hlt,
+            0b10100010: self.mul,
+            0b01000101: self.push,
+            0b01000110: self.pop,
+            0b00010001: self.ret,
+            0b01010000: self.call,
+            0b10100000: self.add,
+            0b10100111: self.compare,
+            0b01010101: self.jeq,
+            0b01010110: self.jne,
+            0b01010100: self.jmp
+            
+        }
+        
 
     # Step 2
     # add method `ram_read()
@@ -57,39 +61,27 @@ class CPU:
 
 
 
-    def load(self, program_name):
+    def load(self):
         """Load a program into memory."""
-        
+
+        if len(sys.argv) < 2:
+            raise NameError("no input")
+
+        program_name = sys.argv[1]               
         address = 0        
 
         with open(program_name) as p:
             # for address, line in enumerate(p):
             for line in p:
-                line_split = line.split("#")
-                num = line_split[0].strip()
-
-                if num == "":
-                    continue
+                line = line.split("#")[0]
 
                 try:
-                    instruction = int(num, 2)
+                    instruction = int(line, 2)
                 except ValueError:
                     continue
 
                 self.ram[address] = instruction
                 address += 1
-
-        # For now, we've just hardcoded a program:
-
-        # program = [
-        #     # From print8.ls8
-        #     0b10000010, # LDI R0,8
-        #     0b00000000,
-        #     0b00001000,
-        #     0b01000111, # PRN R0
-        #     0b00000000,
-        #     0b00000001, # HLT
-        # ]
 
 
     def alu(self, op, reg_a, reg_b):
@@ -97,7 +89,19 @@ class CPU:
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+        elif op == "SUB":
+            self.reg[reg_a] -= self.reg[reg_b]
+        elif op == "MUL":
+            self.reg[reg_a] *= self.reg[reg_b]
+        elif op == "DIV":
+            self.reg[reg_a] /= self.reg[reg_b]
+        elif op == "CMP":
+            if self.reg[reg_a] == self.reg[reg_b]:
+                self.flags[-1] = 1
+            elif self.reg[reg_a] < self.reg[reg_b]:
+                self.flags[-3] = 1
+            else:
+                self.flags[-2] = 1
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -131,131 +135,129 @@ class CPU:
         # and HLT
         while running == True:
 
-            changed = False
+            # changed = False
             # print("self.pc", self.pc)
 
             ir = self.ram[self.pc]
+            instruction = self.instructions.get(ir)
+            sets_pc = (ir >> 4) & 0b1
+
+            if instruction and not sets_pc:
+                inc = (ir >> 6) + 1
+                self.instructions[ir]()
+                self.pc += inc
+            elif instruction:
+                self.instructions[ir]()
 
             # >> means shift right
             #                       0b10000010
-            number_of_bytes = (ir & 0b11000000) >> 6
-            #                       0b10000000
-            # if num of bytes == 2
-            # then read both address 1 & address 2
-            if number_of_bytes == 2:
-                address_1 = self.ram[self.pc+1]
-                address_2 = self.ram[self.pc+2]
-            elif number_of_bytes == 1:
-                address_1 = self.ram[self.pc+1]
-                address_2 = None
+            # number_of_bytes = (ir & 0b11000000) >> 6
+            # #                       0b10000000
+            # # if num of bytes == 2
+            # # then read both address 1 & address 2
+            # if number_of_bytes == 2:
+            #     address_1 = self.ram[self.pc+1]
+            #     address_2 = self.ram[self.pc+2]
+            # elif number_of_bytes == 1:
+            #     address_1 = self.ram[self.pc+1]
+            #     address_2 = None
 
-            if ir == self.LDI:
-                self.ldi(address_1, address_2)                
-
-            elif ir == self.PRN:
-                self.prn(address_1)                
-
-            elif ir == self.MUL:
-                self.mul(address_1, address_2)
-
-            elif ir == self.ADD:
-                self.add(address_1, address_2)
-
-            elif ir == self.PUSH:
-                self.push(address_1)
-
-            elif ir == self.POP:
-                self.pop(address_1)
-
-            elif ir == self.CALL:
-                return_addr = self.pc + number_of_bytes + 1
-                # print("return_addr of CALL", return_addr)
-
-                self.reg[SP] -= 1                
-                top_of_stack_addr = self.reg[SP]
-                self.ram[top_of_stack_addr] = return_addr
-
-                # Get the address to call
-                reg_num = self.ram[address_1]
-                sub_routine = self.reg[reg_num]
-
-                # call it
-                self.pc = sub_routine
-
-                changed = True
-
-            elif ir == self.RET:
-                top_of_stack_addr = self.reg[SP]
-                return_addr = self.ram[top_of_stack_addr]
-
-                self.pc = return_addr
-                ir = self.ram[self.pc]
-
-                changed = True
-
-            if ir == self.HLT:
-                running = self.hlt(running)
-                print("halt")
-            if changed == False:                            
-                self.pc += number_of_bytes + 1
-
+            
                 
         # LDI, PRN, HLT defs
         # LDI will have address, value, and ram_write
         # PRN will have address and value of ram_read
         # HLT will return false
-    def ldi(self, address_1, value):        
-        self.reg[address_1] = value       
+    def ldi(self):        
+        address = self.ram[self.pc+1]
+        value = self.ram[self.pc+2]
+        self.reg[address] = value
 
-    def prn(self, address):        
+    def prn(self):       
+        address = self.ram[self.pc+1]
         value = self.reg[address]
-        print(value)        
+        print(value) 
 
-    def hlt(self, running):
-        
-        return False
+    def hlt(self):        
+        sys.exit(0)
 
-    def mul(self, address_1, address_2):        
+    def add(self):
+        addresses = self.get_operands()
+        self.alu("ADD", *addresses)
 
-        value_1 = self.reg[address_1]
-        value_2 = self.reg[address_2]
-        self.reg[address_1] = value_1 * value_2
-        # print(value_1, value_2)
-        # print("reg", self.reg[address_1])
+    def mul(self):
+        addesses = self.get_operands()
+        self.alu("MUL", *addesses)
 
-    def add(self, address_1, address_2):
+    def div(self):
+        addresses = self.get_operands()
+        self.alu("DIV", *addresses)
 
-        value_1 = self.reg[address_1]
-        value_2 =self.reg[address_2]
-        self.reg[address_1] = value_1 + value_2
+    def compare(self):
+        addresses = self.get_operands()
+        self.alu("CMP", *addresses)
 
-        # print("add", value_1, value_2)
-        # print("reg_add", self.reg[address_1])
+    def get_operands(self):
+        address_1 = self.ram[self.pc +1]
+        address_2 = self.ram[self.pc + 2]
 
+        return [address_1, address_2]
 
     def push(self, address_1):
         # minus SP
-        self.reg[SP] -= 1
+        self.sp -= 1
 
-        # Get the value we want to store from the register
-        reg_num = address_1
-        value = self.reg[reg_num]
+        address = self.ram[self.pc + 1]
+        value = self.reg[address]
+        self.ram[self.sp] = value
 
-        # figure out where to store it
-        top_of_stack_addr = self.reg[SP]
+    def pop(self):
+        address = self.ram[self.pc + 1]
+        value = self.ram[self.sp]
+        self.reg[address] = value
 
-        # and then store it
-        self.ram[top_of_stack_addr] = value
+        self.sp += 1
 
-    def pop(self, address_1):
-        top_of_stack_addr = self.reg[SP]
+    def call(self):
+        return_addr = self.pc + 2
 
-        value = self.ram[top_of_stack_addr]
+        # push onto stack
+        self.pc -= 1
+        self.ram[self.reg[self.sp]] = return_addr
 
-        self.reg[address_1] = value
+        # get() addr to call
+        reg_num = self.ram[self.pc + 1]
+        subroutine_addr = self.reg[reg_num]
 
-        self.reg[SP] += 1
-        
+        # call subroutine
+        self.pc = subroutine_addr
+
+    def ret(self):
+        self.pc = self.ram[self.reg[self.sp]]
+        self.sp += 1
+
+    def jeq(self):
+        if self.flags[-1] == 1:
+            address = self.ram[self.pc+1]
+            jump_to = self.reg[address]
+            self.pc = jump_to
+        else:
+            self.pc += 2
+
+    def jne(self):
+        if self.flags[-1] == 0:
+            address = self.ram[self.pc+1]
+            jump_to = self.reg[address]
+            self.pc = jump_to
+        else:
+            self.pc += 2
+
+    def jmp(self):
+        address = self.ram[self.pc+1]
+        jump_to = self.reg[address]
+        self.pc = jump_to
+
+    
 
 # CALL
 # what are some ways to effectivly get arg to a subroutine 
