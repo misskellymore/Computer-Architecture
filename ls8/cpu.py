@@ -8,6 +8,9 @@ HLT = 0b00000001
 MUL = 0b10100010
 PUSH = 0b01000101
 POP = 0b01000110
+RET = 0b00010001
+CALL = 0b01010000
+ADD = 0b10100000
 SP = 7
 
 # 32  16  8 4 2 1
@@ -37,6 +40,9 @@ class CPU:
         self.MUL = MUL
         self.PUSH = PUSH
         self.POP = POP
+        self.RET = RET
+        self.CALL = CALL
+        self.ADD = ADD
 
 
     # Step 2
@@ -124,9 +130,16 @@ class CPU:
         # PRN
         # and HLT
         while running == True:
+
+            changed = False
+            # print("self.pc", self.pc)
+
             ir = self.ram[self.pc]
+
             # >> means shift right
+            #                       0b10000010
             number_of_bytes = (ir & 0b11000000) >> 6
+            #                       0b10000000
             # if num of bytes == 2
             # then read both address 1 & address 2
             if number_of_bytes == 2:
@@ -145,35 +158,46 @@ class CPU:
             elif ir == self.MUL:
                 self.mul(address_1, address_2)
 
+            elif ir == self.ADD:
+                self.add(address_1, address_2)
+
             elif ir == self.PUSH:
-                # minus SP
-                self.reg[SP] -= 1
-
-                # Get the value we want to store from the register
-                reg_num = address_1
-                value = self.reg[reg_num]
-
-                # figure out where to store it
-                top_of_stack_addr = self.reg[SP]
-
-                # and then store it
-                self.ram[top_of_stack_addr] = value
+                self.push(address_1)
 
             elif ir == self.POP:
+                self.pop(address_1)
 
+            elif ir == self.CALL:
+                return_addr = self.pc + number_of_bytes + 1
+                # print("return_addr of CALL", return_addr)
+
+                self.reg[SP] -= 1                
                 top_of_stack_addr = self.reg[SP]
+                self.ram[top_of_stack_addr] = return_addr
 
-                value = self.ram[top_of_stack_addr]
+                # Get the address to call
+                reg_num = self.ram[address_1]
+                sub_routine = self.reg[reg_num]
 
-                self.reg[address_1] = value
+                # call it
+                self.pc = sub_routine
 
-                self.reg[SP] += 1
+                changed = True
 
+            elif ir == self.RET:
+                top_of_stack_addr = self.reg[SP]
+                return_addr = self.ram[top_of_stack_addr]
 
-            elif ir == self.HLT:
+                self.pc = return_addr
+                ir = self.ram[self.pc]
+
+                changed = True
+
+            if ir == self.HLT:
                 running = self.hlt(running)
-            
-            self.pc += number_of_bytes + 1
+                print("halt")
+            if changed == False:                            
+                self.pc += number_of_bytes + 1
 
                 
         # LDI, PRN, HLT defs
@@ -196,6 +220,79 @@ class CPU:
         value_1 = self.reg[address_1]
         value_2 = self.reg[address_2]
         self.reg[address_1] = value_1 * value_2
-        print(value_1, value_2)
-        print("reg", self.reg[address_1])
+        # print(value_1, value_2)
+        # print("reg", self.reg[address_1])
+
+    def add(self, address_1, address_2):
+
+        value_1 = self.reg[address_1]
+        value_2 =self.reg[address_2]
+        self.reg[address_1] = value_1 + value_2
+
+        # print("add", value_1, value_2)
+        # print("reg_add", self.reg[address_1])
+
+
+    def push(self, address_1):
+        # minus SP
+        self.reg[SP] -= 1
+
+        # Get the value we want to store from the register
+        reg_num = address_1
+        value = self.reg[reg_num]
+
+        # figure out where to store it
+        top_of_stack_addr = self.reg[SP]
+
+        # and then store it
+        self.ram[top_of_stack_addr] = value
+
+    def pop(self, address_1):
+        top_of_stack_addr = self.reg[SP]
+
+        value = self.ram[top_of_stack_addr]
+
+        self.reg[address_1] = value
+
+        self.reg[SP] += 1
         
+
+# CALL
+# what are some ways to effectivly get arg to a subroutine 
+# stack, regs, ram
+# bitwise operators => and
+# results of bitwise and btw 2 sets of binary numbers
+# binary to hex
+
+#     1
+#    10
+#    11
+#   100
+#   101
+#   110
+#   111
+#  1000
+#  1001
+#  1010
+#  1011
+#  1100
+#  1111
+
+# 10000
+# 10001
+# 10010
+# 10011
+# 10100
+# 10101
+# 10110
+# 10111
+
+
+
+
+
+
+
+
+
+
